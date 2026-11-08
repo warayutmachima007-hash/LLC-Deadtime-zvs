@@ -1,0 +1,569 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Animated half-bridge LLC: why dead time decides ZVS. Too short, just right, too long — Vds, Id, iLr and body diode of the low-side MOSFET.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Dead time decides ZVS">
+<meta property="og:description" content="Interactive LLC half-bridge animation: what happens to Vds, Id and the body diode when dead time is too short, just right or too long.">
+<meta property="og:url" content="https://warayutmachima007-hash.github.io/llc-deadtime-zvs/">
+<meta property="og:image" content="https://warayutmachima007-hash.github.io/llc-deadtime-zvs/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="627">
+<meta name="twitter:card" content="summary_large_image">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-size:14px}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Dead Time and ZVS</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=STIX+Two+Text:ital@0;1&display=swap">
+<style>
+/* Layout: three lab benches side by side (same instant, three dead times) under one shared transport; window diagram + table below */
+:root{
+  --bg:#eef2f1; --panel:#ffffff; --ink:#15211e; --muted:#5a6a65; --line:#d3ddd9; --grid:#e5ecea; --accent:#0b7768; --accent-ink:#ffffff;
+  --vds:#c2185b; --id:#d97706; --gate:#2f4fd0; --ilr:#0c8a63; --dead:rgba(176,124,0,.13); --diode:#e3a008;
+  --good:#16804f; --warn:#a86a00; --crit:#c0392b; --cap:#6d3fd1; --info:#2f6fb0; --f-math:"STIX Two Text","Cambria Math","Times New Roman",serif;
+  --f-display:"IBM Plex Sans Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0c1210; --panel:#131b18; --ink:#dde7e3; --muted:#8b9b95; --line:#25322d; --grid:#1b2622; --accent:#3cc2ab; --accent-ink:#06120f;
+  --vds:#ff7aa8; --id:#ffb347; --gate:#8d9dff; --ilr:#3fd69f; --dead:rgba(240,180,67,.13); --diode:#ffc940;
+  --good:#3ccf8a; --warn:#f0b443; --crit:#ff6b5b; --cap:#b49cff; --info:#7fb4ff; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0c1210; --panel:#131b18; --ink:#dde7e3; --muted:#8b9b95; --line:#25322d; --grid:#1b2622; --accent:#3cc2ab; --accent-ink:#06120f;
+  --vds:#ff7aa8; --id:#ffb347; --gate:#8d9dff; --ilr:#3fd69f; --dead:rgba(240,180,67,.13); --diode:#ffc940;
+  --good:#3ccf8a; --warn:#f0b443; --crit:#ff6b5b; --cap:#b49cff; --info:#7fb4ff; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.5}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px;max-width:1320px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+.eyebrow{font:600 11px var(--f-display);text-transform:uppercase;letter-spacing:.12em;color:var(--accent);margin:0}
+h1{font:700 32px/1.08 var(--f-display);margin:2px 0 6px;text-wrap:balance}
+.lede{margin:0;color:var(--muted);max-width:76ch;font-size:15px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;min-width:0}
+.bar{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--panel)}
+.seg button{font:600 12px var(--f-display);padding:6px 10px;border:0;background:transparent;color:var(--muted);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.btn{font:600 13px var(--f-display);padding:8px 14px;border:1px solid var(--accent);border-radius:8px;background:transparent;color:var(--accent);cursor:pointer;min-width:84px}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.scrub{display:flex;align-items:center;gap:10px;flex:1 1 240px;min-width:0}
+.scrub input{flex:1;min-width:0;accent-color:var(--accent)}
+.scrub output{font:12px var(--f-mono);color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.cases{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+@media (max-width:900px){.cases{grid-template-columns:minmax(0,1fr)}}
+.case{display:flex;flex-direction:column;gap:8px;border-top:4px solid var(--c)}
+.case .top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap}
+.case h2{font:700 20px/1.1 var(--f-display);margin:0}
+.case .td{font:500 12.5px var(--f-mono);color:var(--muted)}
+.pill{font:600 12px var(--f-display);letter-spacing:.03em;padding:4px 10px;border-radius:999px;border:1px solid currentColor;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.pill::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.narr{min-height:44px;margin:0;font-size:13.5px;border-left:3px solid var(--line);padding:2px 0 2px 10px}
+.narr b{font-weight:600}
+.kv{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px 10px;margin:0}
+@media (max-width:520px){.kv{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.scw{position:relative}
+.pp{position:absolute;top:2px;right:2px;width:30px;height:26px;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:600 12px var(--f-mono);cursor:pointer;display:grid;place-items:center;opacity:.92}
+.pp:hover{border-color:var(--accent);color:var(--accent)}
+.sc,.ov{cursor:ew-resize;touch-action:pan-y}
+.fix{margin:0;font-size:13px;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:7px 10px}
+.fix b{color:var(--c)}
+.cm{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;flex:1 1 100%}
+#ceqc{flex:1 1 100%}
+.an{display:flex;flex-direction:column;gap:10px}
+.an h2{font:700 20px var(--f-display);margin:0}
+.an .src{font-size:12.5px;color:var(--muted);margin:0;max-width:90ch}
+.an a{color:var(--accent)}
+.an .why{font-size:13px;color:var(--muted);margin:0}
+ol.steps2{list-style:none;counter-reset:st;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px 24px}
+ol.steps2>li{counter-increment:st;border-top:1px solid var(--line);padding-top:8px;display:flex;flex-direction:column;gap:6px;min-width:0}
+ol.steps2>li h4::before{content:counter(st) " · ";color:var(--accent)}
+#an .grid2{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media (max-width:640px){#an .grid2{grid-template-columns:minmax(0,1fr)}}
+.dz{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px}
+@media (max-width:520px){.dz{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.dz label{display:flex;align-items:center;gap:6px;font:13px var(--f-body);min-width:0}
+.dz input{width:64px;min-width:0;font:500 13px var(--f-mono);padding:4px 6px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--ink);text-align:right}
+.dz span{font:12px var(--f-mono);color:var(--muted)}
+.dz .nm{font-style:normal;min-width:44px}
+.an h4{font:700 15px var(--f-display);margin:10px 0 0}
+.an p{margin:0;max-width:78ch}
+.an .eq{overflow-x:auto;padding:4px 0}
+.an math{font-family:var(--f-math);font-size:1.2em;color:var(--ink)}
+.an .app{font:12.5px/1.6 var(--f-mono);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 10px;max-width:90ch;overflow-wrap:anywhere}
+.an .app b{font-weight:600;color:var(--ink)}
+.an .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px 24px}
+.an .blk{min-width:0;border-top:1px solid var(--line);padding-top:8px;display:flex;flex-direction:column;gap:6px}
+.kv dt{font:600 10.5px var(--f-display);text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.kv dd{margin:0;font:500 14px var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+canvas{display:block;width:100%}
+h3{font:600 13px var(--f-display);text-transform:uppercase;letter-spacing:.08em;margin:0 0 8px}
+.rule p{margin:0 0 8px;max-width:76ch}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font:12px var(--f-mono);color:var(--muted)}
+.legend span::before{content:"";display:inline-block;width:14px;height:3px;border-radius:2px;background:var(--k);margin-right:6px;vertical-align:3px}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:620px;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);font-size:13px}
+th{font:600 11px var(--f-display);text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+td.m{font-family:var(--f-mono)}
+.lab{font:600 11px var(--f-display);text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.par{display:flex;flex-wrap:wrap;gap:10px 22px;align-items:center}
+.par label{display:flex;align-items:center;gap:8px;font-size:13px;flex:1 1 240px;min-width:0}
+.par input{flex:1;min-width:0;accent-color:var(--accent)}
+.par output{font:500 13px var(--f-mono);min-width:64px;text-align:right;font-variant-numeric:tabular-nums}
+.par .sum{font:12.5px var(--f-mono);color:var(--muted);flex:1 1 100%}
+.par .sum b{color:var(--ink);font-weight:600}
+.foot{font-size:12px;color:var(--muted);max-width:90ch;margin:0}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Half-bridge LLC · low-side switch Q2</p>
+    <h1>Dead time decides ZVS</h1>
+    <p class="lede">When Q1 turns off, the tank current must pull Q2's Vds from 400 V down to 0 V before Q2's gate comes on. Four dead times, same converter. Click or drag inside any graph to move the cursor.</p>
+  </header>
+
+  <section class="card bar" aria-label="Animation controls">
+    <button class="btn" id="play">Pause</button>
+    <div class="seg" id="speed" role="group" aria-label="Speed"><button data-v="0.25" aria-pressed="false">¼×</button><button data-v="0.5" aria-pressed="false">½×</button><button data-v="1" aria-pressed="true">1×</button><button data-v="2" aria-pressed="false">2×</button></div>
+    <div class="scrub"><input id="scrub" type="range" min="0" max="1000" value="0" aria-label="Time from Q1 turn-off"><output id="tout">t = 0 ns</output></div>
+    <div class="legend"><span style="--k:var(--gate)">Gate Q2</span><span style="--k:var(--vds)">Vds Q2</span><span style="--k:var(--id)">Id Q2</span><span style="--k:var(--ilr)">iLr (dashed)</span><span style="--k:var(--diode)">body diode</span></div>
+  </section>
+
+  <section class="card par" aria-label="Parasitic capacitance">
+    <span class="lab">MOSFET output capacitance</span>
+    <label for="pc-coss"><span>C<sub>o(tr)</sub> per switch</span><input id="pc-coss" type="range" min="50" max="1000" step="10" value="200"><output id="o-coss">200 pF</output></label>
+    <label for="pc-vf"><span>Body-diode V<sub>f</sub></span><input id="pc-vf" type="range" min="0.3" max="5" step="0.1" value="0.8"><output id="o-vf">0.8 V</output></label>
+    <div class="sum" id="sum"></div>
+  </section>
+
+  <div class="cases" id="cases"></div>
+
+  <section class="card rule">
+    <h3>The ZVS window</h3>
+    <p>Dead time must be <b>longer</b> than the node swing and <b>shorter</b> than the moment the tank current reverses.</p>
+    <canvas id="win" aria-label="ZVS window with the four dead times marked"></canvas>
+  </section>
+
+
+
+  <section class="card an" id="an"></section>
+
+  <section class="card an" id="design">
+    <h2>How to choose the dead time</h2>
+    <div class="eq"><math display="block"><msub><mi>t</mi><mi>dead</mi></msub><mo>≥</mo><mfrac><mrow><mn>2</mn><mo>·</mo><msub><mi>C</mi><mrow><mi>o</mi><mo>(</mo><mi>tr</mi><mo>)</mo></mrow></msub><mo>·</mo><msub><mi>V</mi><mi>in</mi></msub></mrow><msub><mi>I</mi><mrow><mi>Lm</mi><mo>,</mo><mi>pk</mi></mrow></msub></mfrac></math></div>
+    <p>Long enough for the magnetizing current to swing the switch node [1], but short enough that the gate turns on before the tank current reverses. Use the highest switching frequency, where the magnetizing current is smallest, and confirm on the scope that Vds reaches 0 V just before the gate turns on.</p>
+    <div class="app" id="dz-out"></div>
+    <h4 style="margin-top:4px">Reference</h4>
+    <ol class="src" style="padding-left:18px;display:grid;gap:4px">
+      <li>S. S. Queiroz and L. F. Costa, “Investigation of the Influence of the Dead-Time on the Performance of an LLC Resonant Converter for High-Power Application,” in <i>Proc. IEEE PEDG</i>, 2024. <a href="https://doi.org/10.1109/PEDG61800.2024.10667434">doi:10.1109/PEDG61800.2024.10667434</a></li>
+    </ol>
+  </section>
+
+  <p class="foot" id="foot"></p>
+</div>
+
+<script>
+(function(){
+/* ===================== SOLVER (pure) ===================== */
+function fha(Lr,Cr,Lm,n,R,fs){
+  const fr=1/(2*Math.PI*Math.sqrt(Lr*Cr)), Ln=Lm/Lr, Rac=8*n*n*R/(Math.PI*Math.PI), Z0=Math.sqrt(Lr/Cr), Q=Z0/Rac, fn=fs/fr;
+  return {fr,Ln,Rac,Q,Z0,fn,M:gainAt(fn,Ln,Q),fm:1/(2*Math.PI*Math.sqrt((Lr+Lm)*Cr))};
+}
+function gainAt(fn,Ln,Q){const a=1+(1/Ln)*(1-1/(fn*fn)), b=Q*(fn-1/fn);return 1/Math.sqrt(a*a+b*b);}
+function newMet(){return {sI2:0,sIs2:0,sP:0,sVo:0,sIrect:0,cnt:0,pkI:0,pkIm:0,pkIs:0,vcrMax:-1e30,vcrMin:1e30,voMax:-1e30,voMin:1e30,ioffH:0,ioffL:0,resH:0,resL:0,trH:-1,trL:-1,tzH:-1,tzL:-1};}
+
+function runCycle(st,c,T,N,rec,t0,dec,m){
+  let iLr=st.iLr,iLm=st.iLm,vCr=st.vCr,vo=st.vo,vab=st.vab,s=st.s;
+  const dt=T/N, half=N>>1; let nd=Math.round(c.Td/dt); if(nd>half-2) nd=Math.max(0,half-2);
+  const sc=c.Vin/(2*c.Vb),Vin=c.Vin,Rs=c.Rs,Lr=c.Lr,Lm=c.Lm,Lt=Lr+Lm,Cr=c.Cr,Co=c.Cout,Rl=c.R,n=c.n,Vf=c.Vf,Vb=c.Vb,Ceq=c.Ceq,kL=Lm/Lt,off=c.off;
+  for(let k=0;k<N;k++){
+    if(k===0) m.ioffL=iLr;
+    if(k===half) m.ioffH=iLr;
+    if(k===nd){m.resH=Vb-vab;vab=Vb;}
+    else if(k===half+nd){m.resL=vab+Vb;vab=-Vb;}
+    const dead=(k<nd||(k>=half&&k<half+nd));
+    if(dead){vab-=iLr/(c.nl?c.CeqF((vab+Vb)*sc):Ceq)*dt;if(vab>Vb)vab=Vb;else if(vab<-Vb)vab=-Vb;
+      if(k<nd){if(vab>=Vb&&m.trH<0)m.trH=(k+1)*dt;}else if(vab<=-Vb&&m.trL<0)m.trL=(k-half+1)*dt;}
+    const vth=n*(vo+Vf);
+    if(s!==0){
+      const vp=s*vth;
+      iLr+=(vab-vCr-vp-Rs*iLr)/Lr*dt;
+      iLm+=vp/Lm*dt;
+      if(s*(iLr-iLm)<=0){s=0;iLm=iLr;}
+    }else{
+      const vd=vab-vCr;
+      iLr+=(vd-Rs*iLr)/Lt*dt; iLm=iLr;
+      const vp=kL*vd;
+      if(vp>vth)s=1;else if(vp<-vth)s=-1;
+    }
+    if(k<half){if(m.tzH<0&&iLr>=0)m.tzH=(k+1)*dt;}else if(m.tzL<0&&iLr<=0)m.tzL=(k-half+1)*dt;
+    vCr+=iLr/Cr*dt;
+    const is=n*(iLr-iLm), irect=s!==0?Math.abs(is):0;
+    vo+=(irect-vo/Rl)/Co*dt; if(vo<0)vo=0;
+    m.sI2+=iLr*iLr; m.sIs2+=is*is; m.sP+=vab*iLr; m.sVo+=vo; m.sIrect+=irect; m.cnt++;
+    const ai=iLr<0?-iLr:iLr; if(ai>m.pkI)m.pkI=ai;
+    const am=iLm<0?-iLm:iLm; if(am>m.pkIm)m.pkIm=am;
+    const vc=vCr+off; if(vc>m.vcrMax)m.vcrMax=vc; if(vc<m.vcrMin)m.vcrMin=vc;
+    const ais=is<0?-is:is; if(ais>m.pkIs)m.pkIs=ais;
+    if(vo>m.voMax)m.voMax=vo; if(vo<m.voMin)m.voMin=vo;
+    if(rec&&k%dec===0&&rec.n<rec.cap){const j=rec.n++;rec.t[j]=t0+k*dt;rec.vab[j]=vab+off;rec.ilr[j]=iLr;rec.ilm[j]=iLm;rec.vcr[j]=vc;rec.isec[j]=is;rec.vo[j]=vo;
+      const vn=(vab+Vb)*sc, g1=(k>=nd&&k<half)?1:0, g2=(k>=half+nd)?1:0;
+      const vth2=n*(vo+Vf),vpR=s!==0?s*vth2:kL*(vab-vCr-Rs*iLr);
+      rec.vpri[j]=vpR;rec.vlr[j]=vab-vCr-Rs*iLr-vpR;rec.iref[j]=iLr-iLm;
+      rec.vds1[j]=Vin-vn;rec.vds2[j]=vn;rec.g1[j]=g1;rec.g2[j]=g2;
+      rec.id1[j]=g1?iLr:(dead&&vab>=Vb&&iLr<0?iLr:0);
+      rec.id2[j]=g2?-iLr:(dead&&vab<=-Vb&&iLr>0?-iLr:0);}
+  }
+  st.iLr=iLr;st.iLm=iLm;st.vCr=vCr;st.vo=vo;st.vab=vab;st.s=s;
+}
+function newRec(cap){const f=()=>new Float64Array(cap);return {n:0,cap,t:f(),vab:f(),ilr:f(),ilm:f(),vcr:f(),isec:f(),vo:f(),vds1:f(),vds2:f(),id1:f(),id2:f(),g1:f(),g2:f(),vpri:f(),vlr:f(),iref:f()};}
+
+const NL_A=30,NL_V1=12;
+function mkCoss(S){const Vin=S.Vin,Cb=S.Coss*1e-12*Vin/(Vin+NL_A*NL_V1*(1-Math.exp(-Vin/NL_V1)));return v=>Cb*(1+NL_A*Math.exp(-Math.max(0,v)/NL_V1));}
+function mkCeqF(S){const co=mkCoss(S),Cp=(S.Cpar||0)*1e-12,Vin=S.Vin;return v=>co(v)+co(Vin-v)+Cp;}
+function buildConsts(S){
+  const FB=S.topo==='FB';
+  return {Lr:S.Lr*1e-6,Cr:S.Cr*1e-9,Lm:S.Lm*1e-6,n:S.n,R:S.R,Cout:S.Cout*1e-6,Vf:S.Vf,Rs:S.Rs*1e-3,Td:S.Td*1e-9,
+    Vin:S.Vin,Vb:FB?S.Vin:S.Vin/2,Ceq:((FB?1:2)*S.Coss+(S.Cpar||0))*1e-12,off:FB?0:S.Vin/2,FB,nl:!!S.nl,CeqF:mkCeqF(S)};
+}
+function stepsFor(T,Td){return Math.min(6000,Math.max(1500,Td>0?Math.ceil(25*T/Td):1500));}
+
+function simSteady(S,budgetMs){
+  const c=buildConsts(S), fs=S.fs*1e3, T=1/fs, N=stepsFor(T,c.Td);
+  const f=fha(c.Lr,c.Cr,c.Lm,c.n,c.R,fs);
+  const st={iLr:0,iLm:0,vCr:0,vo:Math.max(0,f.M*c.Vb/c.n-c.Vf),vab:-c.Vb,s:0};
+  const t0=(typeof performance!=='undefined'?performance.now():Date.now());
+  let prevAvg=-1,acc=0,stable=0,cyc=0,dummy=newMet();
+  while(cyc<6000){
+    runCycle(st,c,T,N,null,0,1,dummy); cyc++; acc+=st.vo;
+    if(cyc%10===0){const avg=acc/10;acc=0;
+      if(cyc>40&&Math.abs(avg-prevAvg)<3e-5*Math.max(avg,1)){if(++stable>=3)break;}else stable=0;
+      prevAvg=avg;}
+    if(((typeof performance!=='undefined'?performance.now():Date.now())-t0)>budgetMs)break;
+  }
+  const dec=1, rec=newRec(3*N+4);
+  runCycle(st,c,T,N,rec,0,dec,newMet());
+  runCycle(st,c,T,N,rec,T,dec,newMet());
+  const m=newMet(); runCycle(st,c,T,N,rec,2*T,dec,m);
+  const tauCyc=c.R*c.Cout*fs;
+  const dt=T/N,half=N>>1;let nd=Math.round(c.Td/dt);if(nd>half-2)nd=Math.max(0,half-2);
+  const dead=[];for(let i=0;i<3;i++){dead.push([i*T,i*T+nd*dt],[i*T+half*dt,i*T+(half+nd)*dt]);}
+  return {mode:'steady',c,f,rec,m,N,T,tdA:nd*dt,halfT:half*dt,dead,ev1:T,ev2:T+half*dt,cycles:cyc,settled:stable>=3&&(tauCyc<2000||cyc>2.5*tauCyc),tauCyc};
+}
+
+function simStartup(S){
+  const c=buildConsts(S), fs=S.fs*1e3, f0=S.f0*1e3, cycles=Math.round(S.cyc), ramp=Math.round(S.ramp), N=1500;
+  const f=fha(c.Lr,c.Cr,c.Lm,c.n,c.R,fs);
+  const dec=Math.max(1,Math.ceil(cycles*N/7000)), rec=newRec(Math.ceil(cycles*N/dec)+4);
+  const st={iLr:0,iLm:0,vCr:(!c.FB&&!S.pre)?-c.Vb:0,vo:0,vab:c.FB?0:-c.Vb,s:0};
+  const m=newMet(); let t=0,hard=0,cap=0,pkCyc=0,pkPrev=0,firstPk=0;
+  for(let i=0;i<cycles;i++){
+    const fi=ramp>0?f0+(fs-f0)*Math.min(1,i/ramp):fs, T=1/fi;
+    runCycle(st,c,T,N,rec,t,dec,m); t+=T;
+    if(Math.max(m.resH,m.resL)>0.03*2*c.Vb)hard++;
+    if(m.ioffH<0)cap++;
+    if(m.pkI>pkPrev){pkPrev=m.pkI;pkCyc=i+1;}
+    if(i===0)firstPk=m.pkI;
+  }
+  return {mode:'startup',dead:[],c,f,rec,m,N,cycles,hard,cap,pkCyc,firstPk,vfinal:st.vo,tEnd:t};
+}
+
+
+
+/* ---------- three cases ---------- */
+const BASE={Vin:400,topo:'HB',Lr:30,Cr:47,Lm:150,Rs:50,n:4.2,R:2.3,Cout:220,Vf:0,fs:130,Td:150,Coss:200,Cpar:0,nl:false};
+let VF=0.8;
+const cossAt=v=>BASE.nl?mkCoss(BASE)(v)*1e12:BASE.Coss;
+const nodeC=v=>cossAt(v)+cossAt(BASE.Vin-v)+BASE.Cpar;
+const TDS=[40,120,350,600];
+const T0=-60e-9,T1=760e-9;
+let CASES=[],WIN={tr:0,tz:0};
+function compute(){
+  CASES=TDS.map((td,ix)=>{const c={td,ix};
+    const r=simSteady({...BASE,Td:td},900),rec=r.rec,m=r.m;
+    const ev=r.ev2,a=ev+T0,b=ev+T1;const idx=[];for(let i=0;i<rec.n;i++){const t=rec.t[i];if(t>=a&&t<=b)idx.push(i);}
+    const K=['vds2','vds1','id2','g2','g1','ilr'];c.d={t:new Float64Array(idx.length)};K.forEach(k=>c.d[k]=new Float64Array(idx.length));
+    idx.forEach((i,j)=>{c.d.t[j]=rec.t[i]-ev;K.forEach(k=>c.d[k][j]=rec[k][i]);});
+    for(let j=0;j<idx.length;j++){if(c.d.g2[j]<0.5&&c.d.id2[j]<-0.01)c.d.vds2[j]=-VF;}
+    {const Tp=r.T,oi=[];for(let i=0;i<rec.n;i++){const tt=rec.t[i];if(tt>=ev-Tp/2&&tt<=ev+Tp/2)oi.push(i);}
+     const st=Math.max(1,Math.floor(oi.length/900)),sel=oi.filter((_,q)=>q%st===0);
+     c.o={n:sel.length,T:Tp,t:new Float64Array(sel.length)};['vds2','ilr','g1','g2'].forEach(k=>c.o[k]=new Float64Array(sel.length));
+     sel.forEach((i,j)=>{c.o.t[j]=rec.t[i]-ev;['vds2','ilr','g1','g2'].forEach(k=>c.o[k][j]=rec[k][i]);});
+     let pk=0;for(const v of c.o.ilr)pk=Math.max(pk,Math.abs(v));c.o.pk=pk||1;}
+    c.n=idx.length;c.tdA=r.tdA;c.I0=m.ioffH;c.tr=m.trL;c.tz=m.tzL;c.res=Math.max(0,m.resL);c.Ceq=r.c.Ceq;c.vo=m.sVo/m.cnt;
+    c.ok=c.res<=0.03*BASE.Vin;
+    if(BASE.nl){let E=0;const N=200;for(let q=0;q<N;q++){const v=(q+.5)/N*c.res;E+=nodeC(v)*1e-12*v*c.res/N;}c.E=E;}else c.E=0.5*c.Ceq*c.res*c.res;
+    c.P=c.E*BASE.fs*1e3;
+    c.diode=c.ok&&c.tr>=0?c.tdA-c.tr:0;
+    {let Ed=0;const d=c.d;for(let j=1;j<c.n;j++){if(d.t[j]>=0&&d.t[j]<=c.tdA&&d.g2[j]<0.5&&d.id2[j]<-0.01)Ed+=VF*(-d.id2[j])*(d.t[j]-d.t[j-1]);}c.Ed=Ed;c.Pd=Ed*BASE.fs*1e3;}
+    if(c.ok&&c.diode>Math.max(150e-9,1.5*c.tr)){c.key='zvslong';c.name='ZVS, but long';c.col='--info';c.verdict=['ZVS · wasted time','--info'];}
+    else if(c.ok){c.key='good';c.name='Just right';c.col='--good';c.verdict=['ZVS','--good'];}
+    else if(c.tr>=0&&c.tz>=0&&c.tz<c.tdA){c.key='long';c.name='Too long';c.col='--warn';c.verdict=['Hard turn-on','--warn'];}
+    else{c.key='short';c.name='Too short';c.col='--crit';c.verdict=['Hard turn-on','--crit'];}
+    const AN={short:['5(b)','lengthen the dead time, or raise the turn-off current (lower Lm).'],
+      good:['5(a)','none needed. Vds hits 0 V just before the gate turns on.'],
+      zvslong:['5(d)',`shorten the dead time. The body diode conducts ${Math.round(c.diode*1e9)} ns for nothing.`],
+      long:['5(c)','shorten the dead time so the gate turns on before the current reverses.']};
+    c.fig=AN[c.key][0];c.fix=AN[c.key][1];
+    return c;});
+  const mid=CASES[1],trs=CASES.filter(c=>c.tr>=0).map(c=>c.tr);
+  WIN.tz=mid.tz>=0?mid.tz:400e-9;WIN.tr=trs.length?Math.min(...trs):mid.Ceq*BASE.Vin/Math.max(0.1,mid.I0);
+}
+
+/* ---------- helpers ---------- */
+const $=s=>document.querySelector(s),cssv=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function prep(cv,h){const W=cv.clientWidth,dpr=window.devicePixelRatio||1;if(cv.width!==Math.round(W*dpr)||cv.height!==Math.round(h*dpr)){cv.width=Math.round(W*dpr);cv.height=Math.round(h*dpr);cv.style.height=h+'px';}const g=cv.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,W,h);return [g,W];}
+const ns=s=>Math.round(s*1e9)+' ns';
+function at(c,t){const d=c.d;let lo=0,hi=c.n-1;if(t<=d.t[0])return 0;if(t>=d.t[hi])return hi;while(hi-lo>1){const md=(lo+hi)>>1;if(d.t[md]<t)lo=md;else hi=md;}return lo;}
+
+/* ---------- build cards ---------- */
+function buildCards(){
+$('#cases').innerHTML=CASES.map(c=>`<section class="card case" style="--c:var(${c.col})" id="c-${c.ix}">
+  <div class="top"><div><h2 style="color:var(${c.col})">${c.name}</h2><div class="td">dead time ${c.td} ns</div></div><span class="pill" style="color:var(${c.verdict[1]})">${c.verdict[0]}</span></div>
+  <canvas class="hb" aria-label="${c.name}: half-bridge state"></canvas>
+  <canvas class="ov" aria-label="${c.name}: one full switching cycle; the box marks the zoomed view below"></canvas>
+  <div class="scw"><canvas class="sc" aria-label="${c.name}: gate, Vds and Id of Q2. Click or drag to move the cursor."></canvas><button class="pp" type="button" aria-label="Pause">❚❚</button></div>
+  <p class="narr" aria-live="polite"></p>
+  <dl class="kv" style="grid-template-columns:repeat(2,minmax(0,1fr))"><div><dt>Vds at turn-on</dt><dd>${c.res.toFixed(0)} V</dd></div><div><dt>Switching loss</dt><dd>${(c.P+c.Pd).toFixed(2)} W</dd></div></dl>
+  <p class="fix"><b>Fix:</b> ${c.fix}</p>
+</section>`).join('');
+CASES.forEach(c=>{const el=$('#c-'+c.ix);c.ov=el.querySelector('.ov');c.hb=el.querySelector('.hb');c.sc=el.querySelector('.sc');c.narr=el.querySelector('.narr');c.pp=el.querySelector('.pp');c.last='';
+  c.pp.onclick=()=>{playing=!playing;if(playing&&hold<=0&&t>=T1)t=T0;syncPlay();};
+  const toT=e=>{const r=c.sc.getBoundingClientRect(),x=e.clientX-r.left,mp=c.map||{L:38,pw:r.width-72};return Math.max(T0,Math.min(T1,T0+(x-mp.L)/mp.pw*(T1-T0)));};
+  c.sc.addEventListener('pointerdown',e=>{if(e.button!==0)return;playing=false;hold=0;syncPlay();t=toT(e);c.drag=true;try{c.sc.setPointerCapture(e.pointerId);}catch(_){}draw();});
+  c.sc.addEventListener('pointermove',e=>{if(!c.drag)return;t=toT(e);draw();});
+  const end=()=>{c.drag=false;};c.sc.addEventListener('pointerup',end);c.sc.addEventListener('pointercancel',end);
+  const toTo=e=>{const r=c.ov.getBoundingClientRect(),x=e.clientX-r.left,mp=c.omap;if(!mp)return t;return Math.max(T0,Math.min(T1,mp.a+(x-mp.L)/mp.pw*(mp.b-mp.a)));};
+  c.ov.addEventListener('pointerdown',e=>{if(e.button!==0)return;playing=false;hold=0;syncPlay();t=toTo(e);c.odrag=true;try{c.ov.setPointerCapture(e.pointerId);}catch(_){}draw();});
+  c.ov.addEventListener('pointermove',e=>{if(!c.odrag)return;t=toTo(e);draw();});
+  const oend=()=>{c.odrag=false;};c.ov.addEventListener('pointerup',oend);c.ov.addEventListener('pointercancel',oend);});
+syncPlay();
+}
+
+/* ---------- narration ---------- */
+function narrate(c,t,i){
+  const d=c.d;let k,txt;
+  if(t<0){k='pre';txt='<b>Q1 on.</b> Q2 off, blocking 400 V.';}
+  else if(t<c.tdA){
+    const swung=d.vds2[i]<=0.03*BASE.Vin, reversed=c.tz>=0&&t>=c.tz;
+    if(reversed&&!swung){k='back';txt='<b>Current reversed.</b> Vds climbs back up before the gate turns on.';}
+    else if(swung&&c.key==='zvslong'&&c.tr>=0&&t-c.tr>120e-9){k='dlong';txt='<b>Still waiting.</b> The body diode keeps conducting. ZVS is safe, but this time is wasted.';}
+    else if(swung){k='diode';txt=`<b>Vds = −${VF} V.</b> The body diode conducts (Id negative), so Vds sits one diode drop below 0 V. Ready for the gate.`;}
+    else{k='swing';txt='<b>Dead time.</b> The tank current drains the capacitors at the node, so Vds falls.';}
+  }else{
+    if(c.ok){k='zvs';txt='<b>Q2 turns on at 0 V.</b> ZVS: no capacitor energy lost.';}
+    else if(c.key==='short'){k='hard';txt=`<b>Q2 turns on at ${c.res.toFixed(0)} V.</b> The rest of the charge is dumped into Q2: loss and EMI.`;}
+    else{k='late';txt=`<b>Q2 turns on at ${c.res.toFixed(0)} V.</b> It reached 0 V, but waited too long.`;}
+  }
+  if(k!==c.last){c.last=k;c.narr.innerHTML=txt;c.narr.style.borderLeftColor=k==='hard'?cssv('--crit'):k==='late'||k==='back'?cssv('--warn'):k==='dlong'?cssv('--info'):k==='zvs'||k==='diode'?cssv('--good'):cssv('--line');}
+}
+
+/* ---------- half-bridge view ---------- */
+function drawHB(c,t,i,dtR){
+  const H=200,[g,W]=prep(c.hb,H);const ink=cssv('--ink'),mut=cssv('--muted'),vds=cssv('--vds'),idc=cssv('--id'),dio=cssv('--diode'),good_=cssv('--good'),crit=cssv('--crit'),fm=cssv('--f-mono'),fd=cssv('--f-display'),panel=cssv('--panel'),capc=cssv('--cap');
+  const d=c.d,v2=d.vds2[i],v1=d.vds1[i],g1=d.g1[i]>0.5,g2=d.g2[i]>0.5,id2=d.id2[i],il=d.ilr[i];
+  const x=Math.max(64,W*0.2),yT=18,yB=H-18,yN=H/2,yQ1=yT+38,yQ2=yB-38,cx=x+46,px=Math.min(W-150,x+130);
+  const swinging=t>=0&&t<c.tdA&&v2>1&&v2<BASE.Vin-1;
+  g.strokeStyle=ink;g.lineWidth=1.6;
+  g.beginPath();g.moveTo(x-28,yT);g.lineTo(cx,yT);g.moveTo(x-28,yB);g.lineTo(px,yB);g.stroke();
+  g.font=`600 11px ${fd}`;g.fillStyle=mut;g.textAlign='right';g.textBaseline='middle';g.fillText('+400 V',x-32,yT);g.fillText('0 V',x-32,yB);
+  const sw=(yc,on,lbl,diodeOn)=>{g.strokeStyle=ink;g.lineWidth=1.6;g.beginPath();g.moveTo(x,yc-20);g.lineTo(x,yc-12);g.moveTo(x,yc+12);g.lineTo(x,yc+20);g.stroke();
+    g.lineWidth=4;g.strokeStyle=on?good_:mut;g.beginPath();g.moveTo(x,yc-12);g.lineTo(x,yc+12);g.stroke();
+    g.lineWidth=1.6;g.strokeStyle=ink;g.beginPath();g.moveTo(x-8,yc-10);g.lineTo(x-8,yc+10);g.moveTo(x-8,yc);g.lineTo(x-18,yc);g.stroke();
+    g.fillStyle=on?good_:mut;g.font=`600 10px ${fd}`;g.textAlign='right';g.fillText(lbl+(on?' ON':' off'),x-21,yc);
+    const dx=x+18;g.strokeStyle=ink;g.lineWidth=1.4;g.beginPath();g.moveTo(x,yc-16);g.lineTo(dx,yc-16);g.lineTo(dx,yc+16);g.lineTo(x,yc+16);g.stroke();
+    g.fillStyle=diodeOn?dio:panel;g.beginPath();g.moveTo(dx-6,yc+5);g.lineTo(dx+6,yc+5);g.lineTo(dx,yc-4);g.closePath();g.fill();g.stroke();g.beginPath();g.moveTo(dx-6,yc-4);g.lineTo(dx+6,yc-4);g.stroke();
+    if(diodeOn){g.globalAlpha=.35;g.fillStyle=dio;g.beginPath();g.arc(dx,yc,13,0,7);g.fill();g.globalAlpha=1;}};
+  const cap=(xc,ya,yb,v,lbl,val,cur,curLbl)=>{const ym=(ya+yb)/2;g.strokeStyle=ink;g.lineWidth=1.4;g.beginPath();g.moveTo(xc,ya);g.lineTo(xc,ym-4);g.moveTo(xc,ym+4);g.lineTo(xc,yb);g.stroke();
+    const f=Math.max(0,Math.min(1,v/BASE.Vin));
+    if(f>0.02){g.globalAlpha=0.2+0.6*f;g.fillStyle=vds;g.fillRect(xc-12,ym-10,24,5);g.fillRect(xc-12,ym+5,24,5);g.globalAlpha=1;}
+    g.lineWidth=3;g.strokeStyle=ink;g.beginPath();g.moveTo(xc-11,ym-4);g.lineTo(xc+11,ym-4);g.moveTo(xc-11,ym+4);g.lineTo(xc+11,ym+4);g.stroke();
+    if(f>0.02){g.font=`700 9px ${fm}`;g.textAlign='center';g.fillStyle=vds;const nq=Math.max(1,Math.round(f*3));for(let q=0;q<nq;q++){g.fillText('+',xc-7+q*7,ym-14);g.fillText('−',xc-7+q*7,ym+15);}}
+    g.font=`600 10px ${fd}`;g.textAlign='left';g.fillStyle=capc;g.fillText(lbl,xc+15,ym-8);g.font=`10px ${fm}`;g.fillStyle=mut;g.fillText(val,xc+15,ym+3);
+    g.font=`600 10.5px ${fm}`;g.fillStyle=vds;g.fillText(v.toFixed(0)+' V',xc+15,ym+15);
+    if(Math.abs(cur)>0.05){const dir=cur>0?1:-1,ax=xc-15;g.strokeStyle=idc;g.fillStyle=idc;g.lineWidth=2;g.beginPath();g.moveTo(ax,ym-9*dir);g.lineTo(ax,ym+9*dir);g.stroke();g.beginPath();g.moveTo(ax,ym+9*dir);g.lineTo(ax-4,ym+3*dir);g.lineTo(ax+4,ym+3*dir);g.closePath();g.fill();
+      g.font=`600 10px ${fm}`;g.textAlign='left';g.fillText('i '+curLbl,xc+15,ym+27);}};
+  sw(yQ1,g1,'Q1',false);sw(yQ2,g2,'Q2',!g2&&id2<-0.01);
+  g.strokeStyle=ink;g.lineWidth=1.6;g.beginPath();g.moveTo(x,yT);g.lineTo(x,yQ1-20);g.moveTo(x,yQ2+20);g.lineTo(x,yB);g.moveTo(x,yQ1+20);g.lineTo(x,yQ2-20);g.moveTo(x,yN);g.lineTo(W-14,yN);g.stroke();
+  // Coss1 from +400 V rail to node, Coss2 from node to 0 V rail
+  g.beginPath();g.moveTo(cx,yT);g.lineTo(cx,yT);g.moveTo(cx,yN);g.lineTo(x,yN);g.stroke();
+  const C1=cossAt(v1),C2=cossAt(v2),Ct=C1+C2+BASE.Cpar,iC1=swinging?Math.abs(il)*C1/Ct:0,iC2=swinging?Math.abs(il)*C2/Ct:0,iCpar=swinging?Math.abs(il)*BASE.Cpar/Ct:0,fall=il>0;
+  // arrows: when the node falls, Coss2 & Cpar discharge (current flows up out of them), Coss1 charges (current flows down into node from rail side)
+  cap(cx,yT,yN,v1,'Co(tr) Q1',C1.toFixed(0)+' pF'+(BASE.nl?' now':''),swinging?1*(fall?1:-1)*iC1:0,iC1.toFixed(2)+' A');
+  cap(cx,yN,yB,v2,'Co(tr) Q2',C2.toFixed(0)+' pF'+(BASE.nl?' now':''),swinging?-1*(fall?1:-1)*iC2:0,iC2.toFixed(2)+' A');
+  if(BASE.Cpar>0){cap(px,yN,yB,v2,'Cpar','PCB+xfmr '+BASE.Cpar+' pF',swinging?-1*(fall?1:-1)*iCpar:0,iCpar.toFixed(2)+' A');g.strokeStyle=ink;g.lineWidth=1.6;g.beginPath();g.moveTo(px,yB);g.lineTo(px,yB);g.stroke();g.fillStyle=ink;g.beginPath();g.arc(px,yN,3,0,7);g.fill();}
+  g.fillStyle=ink;[[x,yN],[cx,yN],[x,yT],[x,yB]].forEach(([a,b])=>{g.beginPath();g.arc(a,b,3,0,7);g.fill();});
+  const ax=Math.min(W-36,px+70);g.font=`600 10.5px ${fd}`;g.fillStyle=idc;g.textAlign='center';
+  if(Math.abs(il)>0.05){const dir=il>0?1:-1,x1=ax-16*dir,x2=ax+16*dir;g.strokeStyle=idc;g.lineWidth=2.4;g.beginPath();g.moveTo(x1,yN-10);g.lineTo(x2,yN-10);g.stroke();g.beginPath();g.moveTo(x2,yN-10);g.lineTo(x2-7*dir,yN-15);g.lineTo(x2-7*dir,yN-5);g.closePath();g.fill();}
+  g.fillText('iLr '+(il>=0?'+':'−')+Math.abs(il).toFixed(1)+' A',ax,yN+12);g.fillStyle=mut;g.fillText('to tank',ax,yN-24);
+  g.textAlign='left';g.font=`700 11px ${fd}`;
+  if(!c.ok&&t>=c.tdA&&t<c.tdA+90e-9){const k=1-(t-c.tdA)/90e-9;g.globalAlpha=k;g.strokeStyle=crit;g.lineWidth=2;for(let q=0;q<8;q++){const a=q*Math.PI/4+0.3,r1=16,r2=30+6*Math.sin(q*7);g.beginPath();g.moveTo(x+Math.cos(a)*r1,yQ2+Math.sin(a)*r1);g.lineTo(x+Math.cos(a+.15)*((r1+r2)/2),yQ2+Math.sin(a+.15)*((r1+r2)/2));g.lineTo(x+Math.cos(a)*r2,yQ2+Math.sin(a)*r2);g.stroke();}g.globalAlpha=1;}
+  if(!c.ok&&t>=c.tdA){g.fillStyle=crit;g.fillText('hard turn-on: '+c.res.toFixed(0)+' V of node charge dumped into Q2',4,H-4);}
+  else if(c.ok&&t>=c.tdA){g.fillStyle=good_;g.fillText('turned on at 0 V: no capacitor energy lost',4,H-4);}
+  else if(swinging){g.fillStyle=idc;g.fillText('iLr is shared by Co(tr) Q1 + Co(tr) Q2',4,H-4);}
+}
+
+/* ---------- scope view ---------- */
+const VMIN=-60,VMAX=440,IMIN=-8,IMAX=8;
+function drawScope(c,t,i){
+  const H=232,[g,W]=prep(c.sc,H);const ink=cssv('--ink'),mut=cssv('--muted'),grid=cssv('--grid'),line=cssv('--line'),dead=cssv('--dead'),vds=cssv('--vds'),idc=cssv('--id'),gate=cssv('--gate'),good_=cssv('--good'),crit=cssv('--crit'),warn=cssv('--warn'),panel=cssv('--panel'),fm=cssv('--f-mono'),fd=cssv('--f-display');
+  const L=38,R=34,pw=W-L-R,X=s=>L+(s-T0)/(T1-T0)*pw;c.map={L,pw};
+  const gt=8,gb=34,yt=46,yb=H-22;const Yv=v=>yb-(v-VMIN)/(VMAX-VMIN)*(yb-yt),Yi=v=>yb-(v-IMIN)/(IMAX-IMIN)*(yb-yt),Yg=v=>gb-v*(gb-gt-6);
+  const d=c.d,last=i;
+  // dead time band
+  g.fillStyle=dead;g.fillRect(X(0),gt,X(c.tdA)-X(0),yb-gt);
+  g.fillStyle=mut;g.font=`600 10px ${fm}`;g.textAlign='center';g.textBaseline='middle';const bw=X(c.tdA)-X(0);g.fillText(bw>44?'dead time':'td',X(0)+bw/2,yt+9);
+  // grid
+  g.strokeStyle=grid;g.lineWidth=1;[0,200,400].forEach(v=>{const y=Math.round(Yv(v))+.5;g.beginPath();g.moveTo(L,y);g.lineTo(L+pw,y);g.stroke();});
+  [0,200,400,600].forEach(s=>{const x=Math.round(X(s*1e-9))+.5;g.beginPath();g.moveTo(x,gt);g.lineTo(x,yb);g.stroke();});
+  g.strokeStyle=line;g.strokeRect(L+.5,yt+.5,pw-1,yb-yt-1);g.strokeRect(L+.5,gt+.5,pw-1,gb-gt);
+  g.font=`10.5px ${fm}`;g.fillStyle=vds;g.textAlign='right';[0,200,400].forEach(v=>g.fillText(v,L-5,Yv(v)));
+  g.fillStyle=idc;g.textAlign='left';[-5,0,5].forEach(v=>g.fillText(v+' A',L+pw+4,Yi(v)));
+  g.fillStyle=gate;g.textAlign='right';g.fillText('G',L-5,(gt+gb)/2);
+  g.fillStyle=mut;g.textAlign='center';g.textBaseline='top';[0,200,400,600].forEach(s=>g.fillText(s,X(s*1e-9),yb+4));g.textAlign='right';g.fillText('ns',L+pw+R-2,yb+4);
+  // traces
+  const tr=(arr,Y,col,w,upto)=>{g.strokeStyle=col;g.lineWidth=w;g.beginPath();for(let j=0;j<=upto;j++){const xx=X(d.t[j]),yy=Y(arr[j]);j?g.lineTo(xx,yy):g.moveTo(xx,yy);}g.stroke();};
+  g.save();g.beginPath();g.rect(L,gt,pw,yb-gt);g.clip();
+  const ilrC=cssv('--ilr');
+  g.globalAlpha=.18;tr(d.g2,Yg,gate,1.6,c.n-1);tr(d.vds2,Yv,vds,1.6,c.n-1);tr(d.id2,Yi,idc,1.6,c.n-1);g.setLineDash([5,3]);tr(d.ilr,Yi,ilrC,1.6,c.n-1);g.setLineDash([]);g.globalAlpha=1;
+  g.setLineDash([5,3]);tr(d.ilr,Yi,ilrC,2,last);g.setLineDash([]);
+  tr(d.g2,Yg,gate,2,last);tr(d.vds2,Yv,vds,2.4,last);tr(d.id2,Yi,idc,2.2,last);
+  // body diode highlight
+  g.fillStyle=cssv('--diode');g.globalAlpha=.28;for(let j=1;j<=last;j++){if(d.g2[j]<0.5&&d.id2[j]<-0.01){const xa=X(d.t[j-1]),xb=X(d.t[j]);g.fillRect(xa,Yi(0),xb-xa+.5,Yi(d.id2[j])-Yi(0));}}g.globalAlpha=1;
+  g.restore();
+  // turn-on marker
+  if(t>=c.tdA){const j=at(c,c.tdA)-1,v=Math.max(0,d.vds2[Math.max(0,j)]),xx=X(c.tdA),yy=Yv(v);const col=c.ok?good_:c.key==='short'?crit:warn;
+    g.fillStyle=col;g.strokeStyle=panel;g.lineWidth=2;g.beginPath();g.arc(xx,yy,6,0,7);g.fill();g.stroke();
+    g.font=`700 11px ${fm}`;g.textAlign='left';g.textBaseline='bottom';const lbl=c.ok?'ZVS · 0 V':v.toFixed(0)+' V at turn-on';const tw=g.measureText(lbl).width;const lx=xx>L+pw*0.6?xx-tw-10:Math.min(xx+8,L+pw-tw-4);g.fillStyle=panel;g.globalAlpha=.85;g.fillRect(lx-2,yy-20,tw+4,15);g.globalAlpha=1;g.fillStyle=col;g.fillText(lbl,lx,yy-6);}
+  // reversal marker (long case)
+  if(c.key==='long'&&c.tz>=0&&t>=c.tz){const xx=X(c.tz);g.strokeStyle=warn;g.setLineDash([3,3]);g.beginPath();g.moveTo(xx,yt);g.lineTo(xx,yb);g.stroke();g.setLineDash([]);g.fillStyle=warn;g.font=`600 10.5px ${fm}`;g.textAlign='left';g.textBaseline='top';g.fillText('current reverses',xx+4,yt+4);}
+  // cursor
+  const xc=Math.round(X(t))+.5,acc=cssv('--accent');g.strokeStyle=acc;g.lineWidth=1.5;g.beginPath();g.moveTo(xc,gt);g.lineTo(xc,yb);g.stroke();
+  g.fillStyle=acc;g.beginPath();g.moveTo(xc-6,yb);g.lineTo(xc+6,yb);g.lineTo(xc,yb-8);g.closePath();g.fill();
+  {const lbl=Math.round(t*1e9)+' ns';g.font=`600 10.5px ${fm}`;const tw=g.measureText(lbl).width,lx=Math.max(L,Math.min(L+pw-tw-6,xc-tw/2-3));g.fillStyle=acc;g.fillRect(lx,yb+3,tw+6,14);g.fillStyle=cssv('--accent-ink');g.textAlign='left';g.textBaseline='middle';g.fillText(lbl,lx+3,yb+10);}
+  [[d.vds2,Yv,vds],[d.id2,Yi,idc],[d.ilr,Yi,cssv('--ilr')]].forEach(([a,Y,col])=>{g.fillStyle=col;g.beginPath();g.arc(X(d.t[last]),Y(a[last]),3.5,0,7);g.fill();});
+  // tags
+  g.font=`600 10.5px ${fm}`;g.textBaseline='middle';
+  const tags=[{y:Yv(d.vds2[last]),t:'Vds '+(Math.abs(d.vds2[last])<10?(d.vds2[last]<0?'−':'')+Math.abs(d.vds2[last]).toFixed(1):d.vds2[last].toFixed(0))+' V',c:vds},{y:Yi(d.id2[last]),t:'Id '+(d.id2[last]<0?'−':'')+Math.abs(d.id2[last]).toFixed(1)+' A',c:idc},{y:Yi(d.ilr[last]),t:'iLr '+(d.ilr[last]<0?'−':'+')+Math.abs(d.ilr[last]).toFixed(1)+' A',c:cssv('--ilr')}].sort((a,b)=>a.y-b.y);
+  tags.forEach((o,n)=>{o.y=Math.max(yt+9,Math.min(yb-8,o.y));if(n&&o.y<tags[n-1].y+15)o.y=tags[n-1].y+15;const tw=g.measureText(o.t).width,xx=Math.min(L+pw-tw-6,X(d.t[last])+8);g.fillStyle=panel;g.globalAlpha=.88;g.fillRect(xx-3,o.y-7,tw+6,14);g.globalAlpha=1;g.fillStyle=o.c;g.textAlign='left';g.fillText(o.t,xx,o.y);});
+  g.fillStyle=gate;g.textAlign='left';g.font=`600 10px ${fd}`;g.fillText(d.g2[last]>0.5?'Q2 gate ON':'Q2 gate off',L+6,(gt+gb)/2);
+}
+
+/* ---------- one-cycle overview ---------- */
+function drawOv(c,t){
+  const H=132,[g,W]=prep(c.ov,H);const ink=cssv('--ink'),mut=cssv('--muted'),grid=cssv('--grid'),line=cssv('--line'),vds=cssv('--vds'),gate=cssv('--gate'),ilrC=cssv('--ilr'),acc=cssv('--accent'),fm=cssv('--f-mono'),fd=cssv('--f-display');
+  const o=c.o,a=-o.T/2,b=o.T/2,L=38,R=34,pw=W-L-R,X=s=>L+(s-a)/(b-a)*pw;c.omap={L,pw,a,b};
+  const gy1=20,gy2=30,yt=40,yb=H-20,ph=yb-yt,Yv=v=>yb-(v+40)/480*ph,Ip=o.pk*1.15,Yi=v=>yb-(v+Ip)/(2*Ip)*ph;
+  g.font=`600 10.5px ${fd}`;g.fillStyle=ink;g.textAlign='left';g.textBaseline='middle';g.fillText('ONE SWITCHING CYCLE  ('+(o.T*1e6).toFixed(2)+' µs)  ·  box = zoomed view below',L,7);
+  // gate strips
+  const strip=(arr,y,col,lbl)=>{g.fillStyle=col;let st=-1;for(let j=0;j<o.n;j++){const on=arr[j]>0.5;if(on&&st<0)st=j;if((!on||j===o.n-1)&&st>=0){g.fillRect(X(o.t[st]),y-3,X(o.t[j])-X(o.t[st]),6);st=-1;}}g.font=`600 9.5px ${fd}`;g.textAlign='right';g.fillText(lbl,L-4,y);};
+  strip(o.g1,gy1,mut,'Q1');strip(o.g2,gy2,gate,'Q2');
+  g.strokeStyle=grid;g.lineWidth=1;[0,200,400].forEach(v=>{const y=Math.round(Yv(v))+.5;g.beginPath();g.moveTo(L,y);g.lineTo(L+pw,y);g.stroke();});
+  g.strokeStyle=line;g.strokeRect(L+.5,yt+.5,pw-1,ph-1);
+  g.font=`10px ${fm}`;g.textAlign='right';g.fillStyle=vds;[0,400].forEach(v=>g.fillText(v,L-4,Yv(v)));
+  g.textAlign='left';g.fillStyle=ilrC;[-Math.round(o.pk),0,Math.round(o.pk)].forEach(v=>g.fillText(v+' A',L+pw+4,Yi(v)));
+  g.fillStyle=mut;g.textAlign='center';g.textBaseline='top';const us=o.T*1e6;for(let k=0;k<=Math.floor(us);k+=2){g.fillText(k,X(k*1e-6-o.T/2),yb+4);}g.textAlign='right';g.fillText('µs',L+pw+R-2,yb+4);
+  // zoom box
+  const za=X(T0),zb=X(T1);g.fillStyle=acc;g.globalAlpha=.08;g.fillRect(za,gy1-6,zb-za,yb-gy1+6);g.globalAlpha=1;g.strokeStyle=acc;g.lineWidth=1.5;g.strokeRect(za+.5,gy1-6+.5,zb-za-1,yb-gy1+5);
+  // traces
+  g.save();g.beginPath();g.rect(L,yt,pw,ph);g.clip();
+  g.strokeStyle=ilrC;g.lineWidth=1.6;g.setLineDash([5,3]);g.beginPath();for(let j=0;j<o.n;j++){const x=X(o.t[j]),y=Yi(o.ilr[j]);j?g.lineTo(x,y):g.moveTo(x,y);}g.stroke();g.setLineDash([]);
+  g.strokeStyle=vds;g.lineWidth=2;g.beginPath();for(let j=0;j<o.n;j++){const x=X(o.t[j]),y=Yv(o.vds2[j]);j?g.lineTo(x,y):g.moveTo(x,y);}g.stroke();
+  g.restore();
+  g.font=`600 10px ${fm}`;g.textBaseline='middle';g.textAlign='left';g.fillStyle=vds;g.fillText('Vds Q2',X(a+o.T*0.05),Yv(400)+9);g.fillStyle=ilrC;g.fillText('iLr',X(a+o.T*0.22),Yi(o.pk*0.95)-2);
+  // cursor
+  const xc=Math.round(X(t))+.5;g.strokeStyle=acc;g.lineWidth=1.5;g.beginPath();g.moveTo(xc,gy1-6);g.lineTo(xc,yb);g.stroke();
+}
+
+/* ---------- window diagram ---------- */
+function drawWin(){
+  const H=140,[g,W]=prep($('#win'),H);const ink=cssv('--ink'),mut=cssv('--muted'),good_=cssv('--good'),grid=cssv('--grid'),fm=cssv('--f-mono'),fd=cssv('--f-display');
+  const L=20,R=20,pw=W-L-R,tmax=700e-9,X=s=>L+s/tmax*pw,y=62;
+  g.fillStyle=grid;g.fillRect(L,y-11,pw,22);
+  const a=WIN.tr,b=WIN.tz;g.fillStyle=good_;g.globalAlpha=.3;g.fillRect(X(a),y-11,X(b)-X(a),22);g.globalAlpha=1;
+  g.fillStyle=cssv('--crit');g.globalAlpha=.18;g.fillRect(L,y-11,X(a)-L,22);g.fillStyle=cssv('--warn');g.fillRect(X(b),y-11,X(tmax)-X(b),22);g.globalAlpha=1;
+  g.font=`600 11px ${fd}`;g.textAlign='center';g.textBaseline='middle';g.fillStyle=good_;g.fillText('ZVS window',(X(a)+X(b))/2,y);
+  g.fillStyle=mut;g.font=`10.5px ${fm}`;g.textBaseline='top';
+  g.fillText('node swing ≈ '+ns(a),X(a),y+16);g.fillText('current reverses '+ns(b),X(b),y+16);
+  g.textAlign='left';g.fillText('0',L,y+16);g.textAlign='right';g.fillText('700 ns',L+pw,y+16);
+  CASES.forEach(c=>{const x=X(c.td*1e-9),col=cssv(c.col),up=(c.ix%2)*14;g.strokeStyle=col;g.lineWidth=2.5;g.beginPath();g.moveTo(x,y-20-up);g.lineTo(x,y+11);g.stroke();g.fillStyle=col;g.beginPath();g.moveTo(x-6,y-26-up);g.lineTo(x+6,y-26-up);g.lineTo(x,y-18-up);g.closePath();g.fill();
+    g.font=`600 11px ${fd}`;g.textAlign='center';g.textBaseline='bottom';g.fillText(c.name+' '+c.td+' ns',Math.max(L+60,Math.min(L+pw-60,x)),y-28-up);});
+  if(DESIGN_TD!=null&&DESIGN_TD<=tmax){const x=X(DESIGN_TD),col=cssv('--cap');g.strokeStyle=col;g.lineWidth=2;g.setLineDash([4,3]);g.beginPath();g.moveTo(x,y-11);g.lineTo(x,y+30);g.stroke();g.setLineDash([]);
+    g.fillStyle=col;g.font=`600 10.5px ${fd}`;g.textAlign='center';g.textBaseline='top';g.fillText('chosen '+Math.round(DESIGN_TD*1e9)+' ns',Math.max(L+70,Math.min(L+pw-70,x)),y+31);}
+}
+
+/* ---------- table + footnote ---------- */
+function buildTable(){
+if($('#tbl'))$('#tbl').innerHTML=`<thead><tr><th>Case</th><th>Ref.</th><th>Dead time</th><th>Node swing</th><th>Current reverses</th><th>Vds at turn-on</th><th>Coss loss per edge</th><th>At ${BASE.fs} kHz</th><th>Diode loss</th><th>Result</th></tr></thead><tbody>${CASES.map(c=>`<tr><td style="color:var(${c.col});font-weight:600">${c.name}</td><td class="m">${c.fig}</td><td class="m">${c.td} ns</td><td class="m">${c.tr>=0?ns(c.tr):'not finished'}</td><td class="m">${c.tz>=0?ns(c.tz):'—'}</td><td class="m">${c.res.toFixed(0)} V</td><td class="m">${(c.E*1e6).toFixed(2)} µJ</td><td class="m">${c.P.toFixed(2)} W</td><td class="m">${(c.Pd*1e3).toFixed(0)} mW</td><td style="color:var(${c.verdict[1]});font-weight:600">${c.verdict[0]}</td></tr>`).join('')}</tbody>`;
+$('#foot').textContent=`Simulated half-bridge LLC: 400 V in, 48 V / 1 kW out, Lr 30 µH, Cr 47 nF, Lm 150 µH, n 4.2, fs 130 kHz, Co(tr) ${BASE.Coss} pF per switch (time-related output capacitance, used as a fixed value). The turn-on current at ${CASES[1].I0.toFixed(1)} A is set by the magnetizing current. Capacitive turn-on loss = energy left on the node capacitance at turn-on, per edge, estimated with Co(tr) (the energy-related Co(er) gives a more exact figure); the body diode is modelled with Vf = ${VF} V, so Vds sits at −${VF} V while it conducts (too small to see on a 400 V scale); real switches add the output-capacitance discharge spike and ringing at a hard turn-on, which this ideal model does not draw.`;
+}
+
+/* ---------- transport ---------- */
+let playing=!window.matchMedia('(prefers-reduced-motion: reduce)').matches,speed=1,t=T0,hold=0,last=performance.now();
+const SPAN=T1-T0,SEC=9;
+function syncPlay(){$('#play').textContent=playing?'Pause':'Play';CASES.forEach(c=>{if(c.pp){c.pp.textContent=playing?'❚❚':'▶';c.pp.setAttribute('aria-label',playing?'Pause':'Play');}});}
+$('#play').onclick=()=>{playing=!playing;syncPlay();};
+document.querySelectorAll('#speed button').forEach(b=>b.onclick=()=>{speed=+b.dataset.v;document.querySelectorAll('#speed button').forEach(x=>x.setAttribute('aria-pressed',x===b));});
+$('#scrub').addEventListener('input',e=>{t=T0+e.target.value/1000*SPAN;hold=0;draw();});
+function draw(dtR=0){
+  CASES.forEach(c=>{const i=at(c,t);narrate(c,t,i);drawHB(c,t,i,dtR);drawOv(c,t);drawScope(c,t,i);});
+  $('#scrub').value=Math.round((t-T0)/SPAN*1000);$('#tout').textContent='t = '+Math.round(t*1e9)+' ns after Q1 off';
+}
+function frame(now){const dt=Math.min(0.1,(now-last)/1000);last=now;
+  if(playing){if(hold>0){hold-=dt;if(hold<=0)t=T0;}else{t+=dt*speed/SEC*SPAN;if(t>=T1){t=T1;hold=2.2;}}draw(dt);}
+  requestAnimationFrame(frame);}
+new ResizeObserver(()=>{drawWin();drawCeq();draw();}).observe(document.querySelector('.wrap'));
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{drawWin();drawCeq();draw();});
+new MutationObserver(()=>{drawWin();drawCeq();draw();}).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+function buildSum(){const Ceq=2*BASE.Coss+BASE.Cpar,Q=Ceq*1e-12*BASE.Vin,I=CASES[1].I0;
+  $('#sum').innerHTML=`Capacitance at the switch node: <b>2·C<sub>O(tr)</sub> = ${Ceq} pF</b> → the node swing takes about <b>${(Q/I*1e9).toFixed(0)} ns</b>`;}
+function drawCeq(){if(!$('#ceqc'))return;
+  const H=150,[g,W]=prep($('#ceqc'),H);const ink=cssv('--ink'),mut=cssv('--muted'),grid=cssv('--grid'),line=cssv('--line'),cap=cssv('--cap'),fm=cssv('--f-mono'),fd=cssv('--f-display');
+  const L=46,R=12,T=18,B=24,pw=W-L-R,ph=H-T-B,Vin=BASE.Vin;
+  const nl=v=>{const co=mkCoss(BASE);return (co(v)+co(Vin-v))*1e12+BASE.Cpar;},lin=2*BASE.Coss+BASE.Cpar;
+  let ymax=lin;for(let v=8;v<=Vin-8;v+=4)ymax=Math.max(ymax,nl(v));ymax=Math.min(ymax*1.08,Math.max(lin*6,1500));
+  const X=v=>L+v/Vin*pw,Y=c=>T+ph-Math.min(c,ymax)/ymax*ph;
+  g.font=`600 11px ${fd}`;g.fillStyle=ink;g.textAlign='left';g.textBaseline='middle';g.fillText('NODE CAPACITANCE vs Vds of Q2  in pF (Coss1 + Coss2 + Cpar)',L,8);
+  g.strokeStyle=grid;g.lineWidth=1;g.font=`10.5px ${fm}`;g.fillStyle=mut;g.textAlign='right';
+  const st=ymax>1200?500:ymax>600?200:100;for(let c=0;c<=ymax;c+=st){const y=Math.round(Y(c))+.5;g.beginPath();g.moveTo(L,y);g.lineTo(L+pw,y);g.stroke();g.fillText(c,L-5,y);}
+  g.textAlign='center';g.textBaseline='top';[0,100,200,300,400].forEach(v=>{const x=Math.round(X(v))+.5;g.beginPath();g.moveTo(x,T);g.lineTo(x,T+ph);g.stroke();g.fillText(v,x,T+ph+4);});
+  g.textAlign='right';g.fillText('Vds [V]',L+pw,T+ph+13);
+  g.strokeStyle=line;g.strokeRect(L+.5,T+.5,pw-1,ph-1);
+  g.save();g.beginPath();g.rect(L,T,pw,ph);g.clip();
+  g.strokeStyle=cap;g.lineWidth=BASE.nl?1.2:2.4;g.setLineDash(BASE.nl?[5,4]:[]);g.globalAlpha=BASE.nl?.6:1;g.beginPath();g.moveTo(X(0),Y(lin));g.lineTo(X(Vin),Y(lin));g.stroke();g.setLineDash([]);
+  g.globalAlpha=BASE.nl?1:.45;g.lineWidth=BASE.nl?2.4:1.2;g.setLineDash(BASE.nl?[]:[5,4]);g.beginPath();for(let q=0;q<=pw;q++){const v=q/pw*Vin,y=Y(nl(v));q?g.lineTo(L+q,y):g.moveTo(L+q,y);}g.stroke();g.setLineDash([]);g.globalAlpha=1;g.restore();
+  g.font=`600 10.5px ${fm}`;g.textAlign='left';g.textBaseline='bottom';g.fillStyle=cap;g.textBaseline='top';g.fillText('linear '+lin+' pF',X(230),Y(lin)-16);g.fillText('nonlinear: steep below ~50 V and above ~350 V',X(60),T+6);
+}
+function buildAN(){
+  const by=k=>CASES.find(c=>c.key===k);const sh=by('short'),lg=by('long'),gd=by('good')||CASES[1],zl=by('zvslong');
+  const f=c=>c?(c.P+c.Pd).toFixed(2)+' W':'—';
+  $('#an').innerHTML=`<h2>Why dead time matters</h2>
+  <div class="grid2">
+   <div class="blk"><h4 style="color:var(--crit)">Too short</h4><p>The switch turns on before Vds reaches 0 V. The remaining capacitor charge is dumped into the MOSFET: switching loss, current spike, ringing and EMI.${sh?` Here: <b>${sh.res.toFixed(0)} V</b> at turn-on, <b>${f(sh)}</b>.`:''}</p></div>
+   <div class="blk"><h4 style="color:var(--good)">Just right</h4><p>Vds reaches 0 V, the body diode conducts briefly, then the gate turns on. Zero-voltage switching with almost no loss.${gd?` Here: <b>${f(gd)}</b>.`:''}</p></div>
+   <div class="blk"><h4 style="color:var(--info)">Longer than needed</h4><p>Still ZVS, but the body diode conducts for the extra time. That adds diode loss, which is much higher with SiC (V<sub>f</sub> ≈ 3–4 V).${zl?` Here: <b>${f(zl)}</b>.`:''}</p></div>
+   <div class="blk"><h4 style="color:var(--warn)">Far too long</h4><p>The tank current reverses before the gate turns on and charges the node back up. ZVS is lost even though Vds once reached 0 V.${lg?` Here: <b>${lg.res.toFixed(0)} V</b> at turn-on, <b>${f(lg)}</b>.`:''}</p></div>
+  </div>`;
+}
+let DESIGN_TD=null;
+function calcDesign(){
+  const I=CASES[1].I0,tmin=2*BASE.Coss*1e-12*BASE.Vin/I,n=x=>Math.round(x*1e9);DESIGN_TD=null;
+  document.getElementById('dz-out').innerHTML=`This circuit: 2 × ${BASE.Coss} pF × ${BASE.Vin} V / ${I.toFixed(2)} A = <b>${n(tmin)} ns</b> minimum. The current reverses at about <b>${n(WIN.tz)} ns</b>, so any dead time between them gives ZVS.`;
+}
+function rebuild(){compute();buildCards();buildTable();buildSum();buildAN();calcDesign();drawCeq();drawWin();draw();}
+document.querySelectorAll('#cmodel button').forEach(b=>b.onclick=()=>{BASE.nl=b.dataset.m==='nl';document.querySelectorAll('#cmodel button').forEach(x=>x.setAttribute('aria-pressed',x===b));rebuild();});
+let rbT=null;
+{const el=document.getElementById('pc-vf');el.addEventListener('input',()=>{VF=+el.value;document.getElementById('o-vf').textContent=VF.toFixed(1)+' V'+(VF>=2.5?' (SiC)':' (Si)');clearTimeout(rbT);rbT=setTimeout(rebuild,180);});}
+[['pc-coss','o-coss','Coss']].forEach(([id,o,k])=>{const el=document.getElementById(id);el.addEventListener('input',()=>{BASE[k]=+el.value;document.getElementById(o).textContent=el.value+' pF';clearTimeout(rbT);rbT=setTimeout(rebuild,180);});});
+compute();buildCards();buildTable();buildSum();buildAN();calcDesign();drawCeq();
+syncPlay();t=playing?T0:200e-9;drawWin();draw();requestAnimationFrame(frame);
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{drawWin();drawCeq();draw();});
+})();
+</script>
+
+</body>
+</html>
